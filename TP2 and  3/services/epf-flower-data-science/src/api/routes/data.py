@@ -173,3 +173,44 @@ def load_model_params():
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Model parameters config file not found.")
     
+@router.post("/train-model")
+async def train_model():
+    try:
+        # Define paths
+        data_path = "src/data/iris.csv"
+        model_path = "src/models/iris_model.joblib"
+        
+        # Load dataset
+        if not os.path.exists(data_path):
+            raise HTTPException(status_code=404, detail="Dataset not found. Please download and process it first.")
+        df = pd.read_csv(data_path)
+        
+        if 'Species' not in df.columns:
+            raise HTTPException(status_code=400, detail=f"'Species' column not found. Available columns are: {list(df.columns)}")
+        
+        # Prepare data
+        X = df.drop(columns=['Species'])
+        y = df['Species']
+        
+        # Split data
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        
+        # Train model
+        model = LogisticRegression(max_iter=200)
+        model.fit(X_train, y_train)
+        
+        # Save model
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        joblib.dump(model, model_path)
+        
+        # Evaluate model
+        y_pred = model.predict(X_test)
+        accuracy = accuracy_score(y_test, y_pred)
+        
+        return {
+            "message": "Model trained and saved successfully!",
+            "model_path": model_path,
+            "accuracy": accuracy
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
