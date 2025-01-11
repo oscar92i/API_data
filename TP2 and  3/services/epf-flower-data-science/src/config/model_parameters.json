@@ -1,0 +1,17 @@
+{
+    "LogisticRegression": {
+      "C": 1.0,
+      "fit_intercept": true,
+      "intercept_scaling": 1,
+      "max_iter": 100,
+      "multi_class": "auto",
+      "penalty": "l2",
+      "random_state": null,
+      "solver": "lbfgs",
+      "tol": 0.0001,
+      "verbose": 0,
+      "warm_start": false,
+      "n_jobs": null
+    }
+  }
+  

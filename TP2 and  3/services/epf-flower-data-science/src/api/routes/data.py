@@ -6,6 +6,11 @@ from fastapi.responses import JSONResponse
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from fastapi import HTTPException
+import json
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+import joblib
 
 # Initialize the API router
 router = APIRouter()
@@ -156,3 +161,15 @@ async def split_iris_dataset():
 
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+    
+# Function to load model parameters
+def load_model_params():
+    config_path = os.path.join("src\config\model_parameters.json")
+
+    try:
+        with open(config_path, "r") as f:
+            config = json.load(f)
+        return config['LogisticRegression']
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Model parameters config file not found.")
+    
