@@ -11,6 +11,8 @@ import json
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 import joblib
+from pydantic import BaseModel
+from typing import List
 
 # Initialize the API router
 router = APIRouter()
@@ -173,44 +175,56 @@ def load_model_params():
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Model parameters config file not found.")
     
-@router.post("/train-model")
+@router.post("/train")
 async def train_model():
     try:
-        # Define paths
-        data_path = "src/data/iris.csv"
+        data_path = "src/data/Iris.csv"
         model_path = "src/models/iris_model.joblib"
-        
-        # Load dataset
+
         if not os.path.exists(data_path):
-            raise HTTPException(status_code=404, detail="Dataset not found. Please download and process it first.")
+            raise HTTPException(status_code=404, detail="Dataset not found. Please download it first.")
+
+        # Load dataset and prepare data
         df = pd.read_csv(data_path)
-        
-        if 'Species' not in df.columns:
-            raise HTTPException(status_code=400, detail=f"'Species' column not found. Available columns are: {list(df.columns)}")
-        
-        # Prepare data
-        X = df.drop(columns=['Species'])
+        X = df.drop(columns=['Id', 'Species'])  # Drop 'Id' and use only features
         y = df['Species']
         
-        # Split data
+        # Split data into train and test sets
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        
-        # Train model
-        model = LogisticRegression(max_iter=200)
+
+        # Load parameters and train model
+        params = load_model_params()
+        model = LogisticRegression(**params)
         model.fit(X_train, y_train)
-        
-        # Save model
-        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+
+        # Save trained model
+        os.makedirs("src/models", exist_ok=True)
         joblib.dump(model, model_path)
+
+        return {"message": "Model trained and saved successfully!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+class IrisPredictionInput(BaseModel):
+    sepal_length: float
+    sepal_width: float
+    petal_length: float
+    petal_width: float
+
+@router.post("/predict")
+async def predict(input_data: List[IrisPredictionInput]):
+    try:
+        model_path = "src/models/iris_model.joblib"
         
-        # Evaluate model
-        y_pred = model.predict(X_test)
-        accuracy = accuracy_score(y_test, y_pred)
+        if not os.path.exists(model_path):
+            raise HTTPException(status_code=404, detail="Trained model not found. Please train the model first.")
+        model = joblib.load(model_path)
         
-        return {
-            "message": "Model trained and saved successfully!",
-            "model_path": model_path,
-            "accuracy": accuracy
-        }
+        # Prepare features from input
+        features = [[data.sepal_length, data.sepal_width, data.petal_length, data.petal_width] for data in input_data]
+        
+        # Make predictions
+        predictions = model.predict(features)
+        return {"predictions": predictions.tolist()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
